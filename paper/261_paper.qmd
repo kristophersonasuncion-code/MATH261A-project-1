@@ -1,0 +1,123 @@
+---
+title: "Predicting Attendance: Socioeconomic Hardship and Chronic Absenteeism in California School Districts (2024–25)"
+author: "Kristopher Asuncion"
+date: "September 14, 2026"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+  pdf:
+    toc: true
+    toc-depth: 2
+bibliography: references.bib
+link-citations: true
+abstract: |
+  This study investigates the association of district-level poverty rates and chronic absenteeism within California public school districts during the 2024–2025 academic school year. We used administrative data from the California Department of Education ($n = 958$ districts with total enrollment minimum 50). We fitted a simple linear regression model relating Free or Reduced-Price Meal (FRPM) eligibility percentages ($X$) to district chronic absenteeism rates ($Y$). Ordinary Least Squares (OLS) estimation produced the fitted model $\hat{Y} = 7.7042 + 0.1855X$. The model showed a weak positive linear association ($R^2 = 0.1609$), with nonconstancy of the error variance being especially pronounced in higher socioeconomic hardship school districts. The unexplained variance in these school districts points to factors such as health and wellness, housing stability, and transportation access. While district poverty is a statistically significant predictor when addressing chronic absenteeism ($p < 0.001$), policy interventions must extend beyond socioeconomic support alone.
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(janitor)
+library(readxl)
+# ----------------------------------------------------------------------
+# 1. READ & CLEAN CHRONIC ABSENTEEISM DATA (Y) - DEDUPLICATED
+# ----------------------------------------------------------------------
+df_absent_raw <- read_tsv(
+  "chronicabsenteeism25.txt",
+  locale = locale(encoding = "latin1"),
+  na = c("*", "N/A", "", "NA"),
+  show_col_types = FALSE
+)
+frpm2425 <-read_excel("frpm2425.xlsx", sheet=2)
+cde_absent <- df_absent_raw %>%
+  clean_names() %>%
+  filter(
+    aggregate_level == "D",
+    reporting_category == "TA"
+  ) %>%
+  mutate(
+    DistrictCode = sprintf("%07d", as.numeric(district_code)),
+    Y_AbsenteeismRate = as.numeric(chronic_absenteeism_rate)
+  ) %>%
+  filter(!is.na(DistrictCode), !is.na(Y_AbsenteeismRate)) %>%
+  # Deduplicate to ensure exactly 1 row per DistrictCode
+  distinct(DistrictCode, .keep_all = TRUE) %>%
+  select(DistrictCode, DistrictName = district_name, Y_AbsenteeismRate)
+cde_absent
+# ----------------------------------------------------------------------
+# 2. AGGREGATE 10,596 SCHOOL ROWS TO DISTRICT TOTALS (X)
+# ----------------------------------------------------------------------
+cde_poverty <- frpm2425 %>%
+  clean_names() %>%
+  rename_with(~ "district_code", contains("district_code")) %>%
+  rename_with(~ "enrollment_k_12", contains("enrollment_k_12")) %>%
+  rename_with(~ "frpm_count_k_12", contains("frpm_count_k_12")) %>%
+  mutate(clean_dist_code = suppressWarnings(as.numeric(district_code))) %>%
+  filter(!is.na(clean_dist_code)) %>%
+  group_by(clean_dist_code) %>%
+  summarise(
+    Total_Enrollment = sum(as.numeric(enrollment_k_12), na.rm = TRUE),
+    Total_FRPM = sum(as.numeric(frpm_count_k_12), na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    DistrictCode = sprintf("%07d", clean_dist_code),
+    X_PovertyRate = (Total_FRPM / Total_Enrollment) * 100
+  ) %>%
+  filter(Total_Enrollment >= 50, X_PovertyRate <= 100)
+cde_poverty
+# ----------------------------------------------------------------------
+# 3. MERGE BOTH DATASETS
+# ----------------------------------------------------------------------
+cde_data <- inner_join(cde_poverty, cde_absent, by = "DistrictCode") %>%
+  select(
+    DistrictCode,
+    DistrictName,
+    X_PovertyRate,
+    Y_AbsenteeismRate
+  ) %>%
+  drop_na(X_PovertyRate, Y_AbsenteeismRate)
+```
+
+1. IntroductionTo what extent does the percentage of socioeconomically disadvantaged students in a California school district predict its chronic absenteeism rate? As educators, we continue to look for ways to help our students learn and succeed. We explore ways to improve our pedagogy and content knowledge, learn about different classroom routines or structures to implement, and support our students in ways that often go beyond the subject matter. However, none of this is possible or effective if they are not in class. Thus, removing attendance barriers should be one of the primary aims of school districts, their respective school boards, and county leaders. As we continue to look for solutions to help our students get to class, exploring associations between poverty rates and chronic absenteeism rates can inform us if we need to go beyond basic socioeconomic interventions when addressing family and student needs. In the broader context, students missing class is not necessarily a lack of motivation or a sign of defiance; rather, their absences could be more closely tied to factors that impact a family's access to employment, affordable housing, transportation, child care, and health care.For the analysis, we examined 2024–2025 chronic absenteeism data [@CDE_chronic] and 2024–2025 Free or Reduced-Price Meal (FRPM) data [@CDE_frpm] from the California Department of Education (CDE) to determine if socioeconomic status could serve as a predictor of chronic absenteeism at the district level. One key finding of this paper is that district-level FRPM rate could be used to predict absenteeism for California public school districts. However, in higher poverty districts, the variance is much greater. Therefore, when developing policies, interventions, and supports that address student attendance, higher poverty districts need to look for additional interventions in conjunction with socioeconomic supports. In this paper, Section 2 introduces the data used in this analysis, Section 3 describes the method, Section 4 shares the results, and Section 5 provides a discussion and possible next steps for further research.2. DataThe analysis focuses on $n = 958$ California public school districts in the database, in which we explored chronic absenteeism rate versus percent FRPM. The CDE provides separate data for FRPM [@CDE_frpm] and chronic absenteeism [@CDE_chronic].The CDE provides absentee data that includes district code, school code, county name, district name, school name, chronic absenteeism eligible cumulative enrollment, chronic absenteeism count, and chronic absenteeism rate. The CDE provides FRPM data that includes district code, school code, county name, district name, school name, K–12 enrollment, Free Meal Count, FRPM Count, and Percent Eligible FRPM.For FRPM, the district total for FRPM count and K–12 enrollment were not directly available in aggregate form, so data aggregation and manipulation were required. For the FRPM data, we calculated district totals by taking the sum of FRPM Count and the sum of K–12 enrollment across schools within each district to obtain new district totals, calculating the percentages from those aggregated sums. For chronic absenteeism, we aggregated the data to the district level (aggregate_level == "D") and selected the overall aggregate reporting category (reporting_category == "TA").Code snippet
+
+
+Figure 1 indicates a weak positive linear association between chronic absenteeism percent ($Y$) and FRPM rate ($X$).
+
+```{r}
+#| echo: false
+#| fig-cap: "Scatter plot of District FRPM Rate (%) (x-axis) and Chronic Absenteeism Rate (%) (y-axis) with fitted linear regression model."
+#| fig-align: center
+#| out-width: "85%"
+ggplot(cde_data, aes(x = X_PovertyRate, y = Y_AbsenteeismRate)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(x = "District FRPM Rate (%)", y = "Chronic Absenteeism Rate (%)") +
+  theme_minimal()
+```
+  
+3. MethodsWe adopt a simple linear regression model with chronic absenteeism rate as the response variable and poverty rate as the predictor variable. For a specific district $i$, the response variable $Y_i$ represents the actual observed chronic absenteeism rate (percent) and the predictor variable $X_i$ represents the FRPM rate (percent) for the $i^{\text{th}}$ California public school district in our dataset. The model can be written as:$$Y_i = \beta_0 + \beta_1 X_i + \varepsilon_i$$where:$\beta_0$ represents the predicted value of the chronic absenteeism rate (percent) when the FRPM rate is $0\%$.$\beta_1$ represents on average how much the chronic absenteeism rate (percent) increases for every $1\%$ increase in FRPM rate.$\varepsilon_i$ represents the error term and is assumed to follow an independent normal distribution with a mean of zero and constant variance $\sigma^2$ [@KNNL, p. 26].We implemented this analysis using the R programming language [@R_language] and RStudio. The tidyverse meta-package [@tidyverse] was used for data manipulation. To import the data, we utilized readr and readxl [@readxl]. The janitor package [@janitor] was used to standardize variable names between both datasets. The dplyr package [@dplyr] allowed us to obtain district-level aggregate values, group individual schools into districts, calculate district FRPM percentages, remove duplications, and merge the datasets together by matching district codes. The linear regression model was fitted using base R’s lm() function. The ggplot2 package [@ggplot2] was used for data visualization to generate both the scatterplot with our fitted regression line and the residual plot.4. ResultsAfter running the simple linear regression, we obtain the following estimated response model:$$\hat{Y} = 7.7042 + 0.1855 X$$The estimated slope $b_1 = 0.1855$ tells us that the chronic absenteeism rate (percent) increases by $0.1855$ percentage points on average for every $1$ percentage point increase in FRPM rate. The estimated intercept is $b_0 = 7.7042\%$. In other words, when the FRPM rate is $0\%$, the predicted baseline value of chronic absenteeism is $7.7042\%$.We used a two-sided $t$-test to compare the null hypothesis $H_0: \beta_1 = 0$ against the two-sided alternative hypothesis $H_1: \beta_1 \neq 0$. In this situation, the null hypothesis represents no linear association between district poverty rates and chronic absenteeism, while the alternative hypothesis asserts a statistically significant linear association.In order for this test to reject the null hypothesis at significance level $\alpha$, we require $\vert{}t^*\vert{} > t_{1-\alpha/2, \, n-2}$, where $t^*$ is our test statistic equal to $b_1 / s\{b_1\}$ [@KNNL, p. 47]. With significance level $\alpha = 0.05$, estimated slope $b_1 = 0.1855$, standard error $s\{b_1\} = 0.0137$, and $df = 956$ degrees of freedom, the critical value is $t_{0.975, \, 956} = 1.960$. Since our observed $t$-statistic of $13.537$ is significantly greater than $1.960$, we reject the null hypothesis $H_0$.Additionally, we evaluate the $p$-value—the probability of observing data as extreme or more extreme than what was observed under $H_0$. If the $p$-value is below our chosen alpha, we reject the null hypothesis [@Gao_SLR]. In this case, the $p$-value is less than $2.2 \times 10^{-16}$, which is far below $0.05$. We comfortably reject $H_0$ and conclude that there is a statistically significant linear association between district poverty rates and district chronic absenteeism rates.5. DiscussionAs an educator, when students are not in class, they are not learning. If we want our students to succeed, we give them a better shot at success if they are in our classes. Removing barriers to learning starts with removing barriers to attendance. Therefore, exploring possible predictors of chronic absenteeism, such as district poverty rates, is worthwhile.One potential weakness of the fitted model is the nonconstancy of the error variance [@KNNL, p. 107]. Based on the Residuals vs. Fitted Plot (Figure 2), we observe an increasing vertical residual spread among districts with higher fitted values and higher FRPM rates. This indicates that prediction error is substantially higher in socioeconomically disadvantaged school districts than in wealthier school districts.
+  
+```{r}  
+#| label: fig-residual-plot
+#| echo: false
+#| fig-cap: "Scatter plot of fitted values (x-axis) and residuals (y-axis) for simple linear regression with Chronic Absenteeism Rate (%) as response and District FRPM Rate (%) as predictor."
+#| fig-align: center
+#| out-width: "85%"
+
+fit <- lm(Y_AbsenteeismRate ~ X_PovertyRate, data = cde_data)
+
+ggplot(data = NULL, aes(x = fit$fitted.values, y = fit$residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(x = "Fitted Values", y = "Residuals") +
+  theme_minimal()
+```
+
+Another limitation is that the model yielded a coefficient of determination of $R^2 = 0.1609$, indicating that only $16.09\%$ of the variation in chronic absenteeism rates is predictable from FRPM rates. Consequently, $83.91\%$ of the variance in chronic absenteeism rates remains unexplained by this single predictor. This implies that other unobserved factors account for the vast majority of chronic absenteeism variation.Lastly, public school districts with total enrollment under 50 students were omitted due to data stability and confidentiality considerations. These omitted entities may include Dashboard Alternative School Status (DASS) schools that serve high-risk youth dealing with housing instability or personal crises [@CDE_dass]. Because of the unique challenges these schools face, they may represent additional high-leverage outliers (high FRPM rate and high chronic absenteeism rate) that could influence the fitted model.As for next steps, future research could explore modeling chronic absenteeism specifically within districts where FRPM exceeds $50\%$. Because variance increases for districts with higher poverty rates, fitting a dedicated model or applying standard variance-stabilizing transformations on this subset might yield deeper insights. We could also categorize schools by enrollment size intervals (e.g., 0–500, 500–1000, 1000–2000 students), as a district with 100 students differs fundamentally in context and administrative resources from one with 6,000 students. Additionally, categorizing school districts by locale (urban, suburban, or rural) would account for distinct geographic settlement patterns and transportation barriers. Finally, for school districts with high FRPM rates, further research should explore student health and wellness access, public transportation infrastructure, and early childhood attendance patterns as critical factors driving chronic absenteeism.District poverty helps predict chronic absenteeism across California school districts. However, because socioeconomic status accounts for only $16.1\%$ of attendance variance, state leaders cannot rely solely on FRPM rates to address chronic absenteeism. Interventions at the district level—especially in socioeconomically disadvantaged communities—must look beyond economic relief alone to resolve systemic attendance deficiencies.References
