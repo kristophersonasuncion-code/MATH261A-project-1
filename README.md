@@ -1,4 +1,5 @@
 # MATH261A-project-template
+Kris Asuncion
 Example project repository for MATH 261A.
 
 ## Data 
