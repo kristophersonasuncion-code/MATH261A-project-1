@@ -17,6 +17,7 @@ execute:
   message: false
 abstract: 
   This study investigates the association of district-level poverty rates and chronic absenteeism within California public school districts during the 2024–2025 academic school year. We used administrative data from the California Department of Education ($n = 958$ districts with total enrollment minimum 50). We fitted a simple linear regression model relating Free or Reduced-Price Meal (FRPM) eligibility percentages ($X$) to district chronic absenteeism rates ($Y$). Ordinary Least Squares (OLS) estimation produced the fitted model $\hat{Y} = 7.7042 + 0.1855X$. The model shows a weak positive linear association ($R^2 = 0.1609$), with nonconstancy of the error variance being especially pronounced in higher socioeconomic hardship school districts. The unexplained variance in these school districts points to other factors other than FRPM that could be explored such as student health and wellness, housing stability, and transportation access. While district poverty is a statistically significant predictor when addressing chronic absenteeism ($p < 0.001$), policy interventions must go beyond socioeconomic support alone.
+bibliography: references.bib
 ---
 
 ```{r}
@@ -209,22 +210,3 @@ For this study, we see that district poverty can help us make predictions about 
 
 # References
 
-California Department of Education. (2025). Chronic absenteeism data. https://www.cde.ca.gov/ds/ad/chronicdata.asp
-
-California Department of Education. (2025). Dashboard alternative school status (DASS). https://www.cde.ca.gov/ta/ac/dass.asp
-
-California Department of Education. (2025). Free or reduced-price meals data. https://www.cde.ca.gov/ds/ad/filessp.asp
-
-Firke, S. (2023). janitor: Simple tools for examining and cleaning dirty data (R package version 2.2.0). https://CRAN.R-project.org/package=janitor
-
-Gao, P. (2024). Simple linear regression II \[Lecture slides\]. Lecture notes, 03_simple-linear-regression-ii.
-
-Kutner, M. H., Nachtsheim, C. J., Neter, J., & Li, W. (2005). Applied linear statistical models (5th ed.). McGraw-Hill/Irwin.
-
-R Core Team. (2024). R: A language and environment for statistical computing. R Foundation for Statistical Computing. https://www.R-project.org/
-
-Wickham, H. (2016). ggplot2: Elegant graphics for data analysis. Springer-Verlag. https://ggplot2.tidyverse.org
-
-Wickham, H., Averick, M., Bryan, J., Chang, W., McGowan, L. D., François, R., Grolemund, G., Hayes, A., Henry, L., Hester, J., Kuhn, M., Pedersen, T. L., Miller, E., Bache, S. M., Müller, K., Ooms, J., Robinson, D., Seidel, D. P., Spinu, V., … Yutani, H. (2019). Welcome to the tidyverse. Journal of Open Source Software, 4(43), 1686. https://doi.org/10.21105/joss.01686
-
-Wickham, H., & Bryan, J. (2023). readxl: Read Excel files (R package version 1.4.3). https://CRAN.R-project.org/package=readxl
